@@ -3,7 +3,8 @@ package main
 import (
     "flag"
     "github.com/hahnicity/go-stringit"
-    "github.com/hahnicity/reportman"
+    "github.com/hahnicity/go-reportman"
+    "github.com/hahnicity/go-reportman/config"
     "strconv"
     "strings"
     "time"
@@ -15,6 +16,7 @@ var (
     maxRequests  int
     requestDelay int
     startDate    string
+    symbols      string
 )
 
 func parseArgs() {
@@ -29,6 +31,12 @@ func parseArgs() {
         "e",
         stringit.Format("{}-{}-{}", time.Now().Year(), int(time.Now().Month()), time.Now().Day()),
         "The date to finish searching",
+    )
+    flag.StringVar(
+        &symbols,
+        "syms",
+        "SPY",
+        "A comma separated list of symbols to analyze get data for",
     )
     flag.IntVar(
         &days,
@@ -68,8 +76,7 @@ func addURLOptions() map[string]interface{} {
 
 func main() {
     parseArgs()
-    a := reportman.NewAnalyzer(days)
-    r := reportman.NewRequester(a, maxRequests, requestDelay)
-    go reportman.NewBalancer(600).Balance(r.Work) // XXX There is a bug with push
-    r.MakeRequests(data.SP500, addURLOptions())
+    r := reportman.NewRequester(maxRequests, requestDelay)
+    go reportman.NewBalancer(config.Workers).Balance(r.Work) // XXX There is a bug with push
+    r.MakeRequests(strings.Split(symbols, ","), addURLOptions())
 }

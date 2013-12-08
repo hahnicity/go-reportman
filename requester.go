@@ -1,6 +1,12 @@
 package reportman
 
-import "time"
+import (
+    "encoding/csv"
+    "github.com/hahnicity/go-reportman/config"
+    "os"
+    "strconv"
+    "time"
+)
 
 
 type Requester struct {
@@ -46,7 +52,7 @@ func (r *Requester) MakeRequests(companies []string, options map[string]interfac
         }
     }
     r.waitToFinish(c, companies)
-    // XXX Copy to csv
+    writeToCsv(r.allResponses)
 }
 
 // Throttle number of active requests if we are at the number of requests
@@ -68,4 +74,23 @@ func (r *Requester) waitToFinish(c chan *Response, companies []string) {
     }
     close(c)
     close(r.Work)
+}
+
+func writeToCsv(ar []*Response) {
+    f, err := os.Create("data.csv")
+    if err != nil { panic(err) }
+    defer f.Close()
+    w := csv.NewWriter(f)
+    defer w.Flush()
+    for _, resp := range ar {
+        // Write the symbol first
+        w.Write([]string{resp.Symbol})
+        for _, stock := range resp.Stock {
+            var toWrite = []string {
+                stock.Date,
+                strconv.FormatFloat(stock.Adj, 'f', config.SigDigits, 64),
+            }
+            w.Write(toWrite)
+        }
+    }
 }
