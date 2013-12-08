@@ -83,10 +83,10 @@ func writeToCsv(ar []*Response) {
     w := csv.NewWriter(f)
     defer w.Flush()
     for _, resp := range ar {
-        // Write the symbol first
-        w.Write([]string{resp.Symbol})
+        w.Write([]string{"Symbol", "Date", "Adj.Close"})
         for _, stock := range resp.Stock {
             var toWrite = []string {
+                resp.Symbol,
                 stock.Date,
                 strconv.FormatFloat(stock.Adj, 'f', config.SigDigits, 64),
             }
