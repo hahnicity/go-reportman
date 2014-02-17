@@ -13,6 +13,7 @@ import (
 var (
     days         int
     endDate      string
+    dataFile     string
     maxRequests  int
     requestDelay int
     startDate    string
@@ -38,6 +39,12 @@ func parseArgs() {
         "SPY",
         "A comma separated list of symbols to analyze get data for",
     )
+    flag.StringVar(
+        &dataFile,
+        "dataFile",
+        "data.csv",
+        "The name of the file we will store the stock data in.",
+    )
     flag.IntVar(
         &days,
         "days",
@@ -59,10 +66,10 @@ func parseArgs() {
     flag.Parse()
 }
 
-func addURLOptions() map[string]interface{} {
+func AddURLOptions(end, start string) map[string]interface{} {
     // XXX Maybe just use time.Parse instead? too tired to do anything sensible
-    endMonth, _ := strconv.ParseInt(strings.Split(endDate, "-")[1], 10, 8)
-    startMonth, _ := strconv.ParseInt(strings.Split(startDate, "-")[1], 10, 8)
+    endMonth, _ := strconv.ParseInt(strings.Split(end, "-")[1], 10, 8)
+    startMonth, _ := strconv.ParseInt(strings.Split(start, "-")[1], 10, 8)
     var values = map[string]interface{}{
         "a": startMonth - 1, // Yahoo makes us subtract 1 from the month number so March (3) becomes 2
         "b": strings.Split(startDate, "-")[2],
@@ -74,9 +81,15 @@ func addURLOptions() map[string]interface{} {
     return values
 }
 
+func PerformRequest(maxRequests, requestDelay, workers int, symbols string, urlOptions map[string]interface{}) *reportman.Requester{
+    r := reportman.NewRequester(maxRequests, requestDelay)
+    go reportman.NewBalancer(workers).Balance(r.Work) // XXX There is a bug with push
+    r.MakeRequests(strings.Split(symbols, ","), urlOptions)
+    return r
+}
+
 func main() {
     parseArgs()
-    r := reportman.NewRequester(maxRequests, requestDelay)
-    go reportman.NewBalancer(config.Workers).Balance(r.Work) // XXX There is a bug with push
-    r.MakeRequests(strings.Split(symbols, ","), addURLOptions())
+    r := PerformRequest(maxRequests, requestDelay, config.Workers, symbols, AddURLOptions(endDate, startDate))
+    reportman.WriteToCsv(r.AllResponses, dataFile)
 }

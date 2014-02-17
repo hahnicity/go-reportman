@@ -1,20 +1,14 @@
 package reportman
 
-import (
-    "encoding/csv"
-    "github.com/hahnicity/go-reportman/config"
-    "os"
-    "strconv"
-    "time"
-)
+import "time"
 
 
 type Requester struct {
+    // All response received from wikipedia
+    AllResponses   []*Response
+
     // The number of active requests that are being run with wikipedia
     activeRequests int
-
-    // All response received from wikipedia
-    allResponses   []*Response
 
     // The maximum number of requests that can be run concurrently
     maxRequests    int
@@ -52,7 +46,6 @@ func (r *Requester) MakeRequests(companies []string, options map[string]interfac
         }
     }
     r.waitToFinish(c, companies)
-    writeToCsv(r.allResponses)
 }
 
 // Throttle number of active requests if we are at the number of requests
@@ -60,7 +53,7 @@ func (r *Requester) MakeRequests(companies []string, options map[string]interfac
 func (r *Requester) manageActiveProc(c chan *Response) bool {
     if r.activeRequests == r.maxRequests {
         resp := <- c
-        r.allResponses = append(r.allResponses, resp)
+        r.AllResponses = append(r.AllResponses, resp)
         r.activeRequests--
         return true
     }
@@ -69,28 +62,10 @@ func (r *Requester) manageActiveProc(c chan *Response) bool {
 
 // Wait for all requests to finish
 func (r *Requester) waitToFinish(c chan *Response, companies []string) {
-    for len(r.allResponses) < len(companies) {
-        r.allResponses = append(r.allResponses, <-c)
+    for len(r.AllResponses) < len(companies) {
+        r.AllResponses = append(r.AllResponses, <-c)
     }
     close(c)
     close(r.Work)
 }
 
-func writeToCsv(ar []*Response) {
-    f, err := os.Create("data.csv")
-    if err != nil { panic(err) }
-    defer f.Close()
-    w := csv.NewWriter(f)
-    defer w.Flush()
-    for _, resp := range ar {
-        w.Write([]string{"Symbol", "Date", "Adj.Close"})
-        for _, stock := range resp.Stock {
-            var toWrite = []string {
-                resp.Symbol,
-                stock.Date,
-                strconv.FormatFloat(stock.Adj, 'f', config.SigDigits, 64),
-            }
-            w.Write(toWrite)
-        }
-    }
-}
